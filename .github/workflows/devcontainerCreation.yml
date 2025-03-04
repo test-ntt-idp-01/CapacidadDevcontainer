@@ -1,0 +1,50 @@
+name: Crear Devcontainer Personalizado
+
+on:
+  repository_dispatch:
+    types: [devcontainer-request]
+
+jobs:
+  crear_devcontainer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v3
+        with:
+          ref: main
+
+      - name: Obtener datos de getport.oi
+        id: obtener_datos
+        run: |
+          echo "::set-output name=rama::${{ github.event.client_payload.rama }}"
+          echo "::set-output name=herramientas::${{ github.event.client_payload.herramientas }}"
+
+      - name: Crear rama si no existe
+        run: |
+          git ls-remote --heads origin ${{ steps.obtener_datos.outputs.rama }} | grep -q ${{ steps.obtener_datos.outputs.rama }} || git checkout -b ${{ steps.obtener_datos.outputs.rama }}
+
+      - name: Checkout a la rama del usuario
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.obtener_datos.outputs.rama }}
+
+      - name: Generar devcontainer
+        run: python3 .devcontainer/generate_devcontainer.py "${{ steps.obtener_datos.outputs.herramientas }}"
+
+      - name: Configurar Git
+        run: |
+          git config --global user.name "Devcontainer Bot"
+          git config --global user.email "devcontainer-bot@example.com"
+
+      - name: Commit de los cambios
+        run: |
+          git add .devcontainer/
+          git commit -m "Agregar devcontainer para ${{ steps.obtener_datos.outputs.herramientas }}"
+
+      - name: Push de los cambios a la rama del usuario
+        run: |
+          git push origin ${{ steps.obtener_datos.outputs.rama }}
+
+      - name: Notificar a getport.oi (Opcional)
+        run: |
+          echo "devcontainer creado"
